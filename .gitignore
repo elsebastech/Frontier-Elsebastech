@@ -1,0 +1,30 @@
+# secretos
+.env
+.env.*
+!.env.example
+
+# datos del reto (contienen PII real: nunca al repo público)
+fuentes/
+sample/
+sample-*/
+output/
+output-*/
+data/
+*.zip
+
+# estado persistente con originales
+registro/
+
+# artefactos de prueba y de ejecución (derivados de datos reales)
+pruebas/
+pruebas-*.log
+trabajos/
+trabajos.log
+*.log
+
+node_modules/
+.DS_Store
+
+# vigilancia (artefactos de ejecución)
+vigilante.jsonl
+vigilante-CAMBIO.json

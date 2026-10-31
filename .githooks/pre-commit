@@ -1,0 +1,20 @@
+#!/bin/sh
+# Bloquea commits con secretos. Un force-push NO borra el historial de GitHub.
+falla=0
+for f in $(git diff --cached --name-only --diff-filter=ACM); do
+  case "$f" in
+    .env|.env.*) [ "$f" = ".env.example" ] || { echo "BLOQUEADO: $f no va al repo"; falla=1; } ;;
+    fuentes/*|sample/*|output/*|registro/*) echo "BLOQUEADO: $f contiene datos reales"; falla=1 ;;
+  esac
+done
+# valores reales del .env local
+if [ -f .env ]; then
+  for v in $(grep -E '^[A-Z_]*(TOKEN|KEY|SECRET|SAL)[A-Z_]*=' .env | cut -d= -f2-); do
+    [ ${#v} -ge 8 ] && git diff --cached -U0 | grep -qF -- "$v" && { echo "BLOQUEADO: un valor del .env aparece en el diff"; falla=1; }
+  done
+fi
+# formas típicas de llaves
+if git diff --cached -U0 | grep -E '^\+' | grep -qE 'sk-or-v1-[A-Za-z0-9]{20,}|ftr_[A-Za-z0-9]{12,}|Bearer [A-Za-z0-9._-]{24,}'; then
+  echo "BLOQUEADO: algo con forma de token en el diff"; falla=1
+fi
+exit $falla

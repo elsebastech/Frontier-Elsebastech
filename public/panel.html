@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Panel de anonimización — elsebastech</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --txt:#e6e9ef; --dim:#9aa4b2;
+          --ok:#3ddc97; --warn:#ffcc66; --bad:#ff6b6b; --accent:#5b9dff; --mark:#3b2d00; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { padding:16px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; font-weight:600; }
+  .pill { font-size:12px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); color:var(--dim); }
+  .pill.ok { color:var(--ok); border-color:#1f4a38; }
+  main { padding:20px 22px; max-width:1400px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:18px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 12px; }
+  textarea { width:100%; min-height:120px; background:#0c0e12; color:var(--txt); border:1px solid var(--line);
+             border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; resize:vertical; }
+  button { background:var(--accent); color:#05070c; border:0; border-radius:8px; padding:9px 16px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .box { background:#0c0e12; border:1px solid var(--line); border-radius:8px; padding:10px; white-space:pre-wrap;
+         word-break:break-word; font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; max-height:280px; overflow:auto; }
+  .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin-bottom:6px; }
+  mark { background:var(--mark); color:#ffd479; border-radius:3px; padding:0 2px; }
+  .pasos { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 0; }
+  .paso { font-size:12px; padding:5px 10px; border-radius:999px; border:1px solid var(--line); color:var(--dim); }
+  .paso.activo { border-color:var(--accent); color:var(--accent); }
+  .paso.hecho { border-color:#1f4a38; color:var(--ok); }
+  .kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:10px; }
+  .kpi div { background:#0c0e12; border:1px solid var(--line); border-radius:8px; padding:10px; }
+  .kpi b { display:block; font-size:19px; }
+  .kpi span { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:500; }
+  .err { color:var(--bad); font-size:12px; white-space:pre-wrap; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Panel de anonimización</h1>
+  <span class="pill" id="salud">comprobando…</span>
+  <span class="pill" id="modelos"></span>
+  <input id="token" type="password" placeholder="token interno" autocomplete="off"
+         style="margin-left:auto; background:#0c0e12; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px; width:190px">
+</header>
+
+<main>
+  <section>
+    <h2>1 · Probar un registro suelto (no gasta corrida)</h2>
+    <div class="lbl">Registros en JSON — un objeto <code>{"records":[…]}</code>, un array, o <code>{"chats":[…]}</code></div>
+    <textarea id="entrada">{"records":[
+  {"id":"demo-1","author":"Fulano De Tal","text":"Hola, soy Fulano De Tal. Mi cédula es 12.345.678 y mi celular 3001234567. Escríbanme a fulano.detal@ejemplo.com. Mi pasaporte es AB123456.","attachments":[{"filename":"SOAT_ABC123_2026.pdf"}]}
+]}</textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="btnAnonimizar">Anonimizar</button>
+      <button class="ghost" id="btnEjemplo">Cargar otro ejemplo</button>
+      <span class="pill" id="estadoAnon"></span>
+    </div>
+    <div class="err" id="errAnon"></div>
+    <div class="grid2" id="comparacion" style="margin-top:14px; display:none">
+      <div><div class="lbl">Original</div><div class="box" id="txtOriginal"></div></div>
+      <div><div class="lbl">Anonimizado (tramos reemplazados resaltados)</div><div class="box" id="txtAnon"></div></div>
+    </div>
+    <div id="tablaCambios" style="margin-top:14px"></div>
+  </section>
+
+  <section>
+    <h2>2 · Correr el pipeline completo sobre las fuentes</h2>
+    <div class="row">
+      <button id="btnCorrer">Correr pipeline</button>
+      <span class="pill" id="estadoJob">sin ejecutar</span>
+    </div>
+    <div class="pasos" id="pasos">
+      <span class="paso" data-p="descarga">descarga</span>
+      <span class="paso" data-p="extraccion">extracción</span>
+      <span class="paso" data-p="preflight">preflight (Jev)</span>
+      <span class="paso" data-p="anonimizacion">anonimización</span>
+      <span class="paso" data-p="verificacion">verificación</span>
+      <span class="paso" data-p="listo">listo</span>
+    </div>
+    <div class="err" id="errJob"></div>
+    <div id="preflightBox" style="margin-top:10px"></div>
+    <div class="kpi" id="kpis"></div>
+    <div id="salidas" style="margin-top:12px"></div>
+    <div id="muestras" style="margin-top:14px"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+// El token puede llegar por URL (./panel.sh lo imprime) y se guarda solo para esta sesión.
+const kUrl = new URLSearchParams(location.search).get("k");
+if (kUrl) {
+  sessionStorage.setItem("anonToken", kUrl);
+  history.replaceState({}, "", location.pathname);
+}
+$("token").value = sessionStorage.getItem("anonToken") || "";
+$("token").onchange = () => sessionStorage.setItem("anonToken", $("token").value);
+const conToken = (h = {}) => { const t = $("token").value; return t ? { ...h, "x-anon-token": t } : h; };
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+async function salud() {
+  try {
+    const r = await fetch("/health"); const j = await r.json();
+    $("salud").textContent = j.status === "ok" ? "servicio ok" : j.status;
+    $("salud").className = "pill ok";
+    $("modelos").textContent = (j.models || []).join(" · ");
+  } catch { $("salud").textContent = "servicio caído"; }
+}
+
+/** Diff por palabras: devuelve los tramos del anonimizado que no estaban en el original. */
+function diff(original, anonimizado) {
+  const a = original.split(/(\s+)/), b = anonimizado.split(/(\s+)/);
+  const n = a.length, m = b.length;
+  const L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  let i = 0, j = 0; const salida = []; const cambios = [];
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { salida.push({ t: b[j], igual: true }); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) { salida.push({ t: a[i], soloOriginal: true }); i++; }
+    else { salida.push({ t: b[j], nuevo: true }); cambios.push(b[j]); j++; }
+  }
+  while (i < n) { salida.push({ t: a[i], soloOriginal: true }); i++; }
+  while (j < m) { salida.push({ t: b[j], nuevo: true }); cambios.push(b[j]); j++; }
+  return { salida, cambios: cambios.filter((x) => x.trim()) };
+}
+
+function pintar(original, anonimizado) {
+  const { salida } = diff(original, anonimizado);
+  $("txtOriginal").textContent = original;
+  $("txtAnon").innerHTML = salida.map((p) =>
+    p.nuevo ? `<mark>${esc(p.t)}</mark>` : p.soloOriginal ? "" : esc(p.t)
+  ).join("");
+}
+
+function registrosDe(texto) {
+  const j = JSON.parse(texto);
+  if (Array.isArray(j)) return j;
+  if (j.records) return j.records;
+  if (j.registros) return j.registros;
+  if (j.chats) return j.chats;
+  if (j.docs) return j.docs;
+  if (j.tables) return j.tables;
+  return [j];
+}
+
+$("btnAnonimizar").onclick = async () => {
+  $("errAnon").textContent = ""; $("estadoAnon").textContent = "anonimizando…";
+  try {
+    const cuerpo = JSON.parse($("entrada").value);
+    const r = await fetch("/anonymize", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
+    if (!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    const antes = registrosDe($("entrada").value);
+    const despues = j.records || j.registros || j.chats || j.docs || j.tables || [];
+    const comparacion = $("comparacion");
+    comparacion.style.display = "block";
+
+    const a0 = antes[0] || {}, d0 = despues[0] || {};
+    const textoA = a0.text || a0.body || JSON.stringify(a0.columns || a0, null, 1);
+    const textoD = d0.text || d0.body || JSON.stringify(d0.columns || d0, null, 1);
+    pintar(String(textoA), String(textoD));
+
+    const filas = antes.map((a, k) => {
+      const d = despues[k] || {};
+      const pares = [];
+      for (const campo of ["author", "text", "body", "filename", "title"]) {
+        if (a[campo] && d[campo] && a[campo] !== d[campo]) pares.push([campo, a[campo], d[campo]]);
+      }
+      if (a.attachments && d.attachments) {
+        a.attachments.forEach((x, i2) => {
+          const y = (d.attachments || [])[i2] || {};
+          if (x.filename !== y.filename) pares.push(["adjunto", x.filename, y.filename]);
+        });
+      }
+      if (a.columns && d.columns) {
+        for (const k2 of Object.keys(a.columns)) if (a.columns[k2] !== d.columns[k2]) pares.push([k2, a.columns[k2], d.columns[k2]]);
+      }
+      if (a.metadata && d.metadata) {
+        for (const k2 of Object.keys(a.metadata)) if (a.metadata[k2] !== d.metadata[k2]) pares.push(["metadata." + k2, a.metadata[k2], d.metadata[k2]]);
+      }
+      return pares;
+    });
+    const total = filas.reduce((s, f) => s + f.length, 0);
+    $("tablaCambios").innerHTML = total
+      ? `<div class="lbl">${total} tramo(s) reemplazado(s)</div><table><tr><th>campo</th><th>real</th><th>falso</th></tr>${
+          filas.flat().map(([c, x, y]) => `<tr><td>${esc(c)}</td><td>${esc(x)}</td><td><mark>${esc(y)}</mark></td></tr>`).join("")}</table>`
+      : `<div class="lbl">sin cambios (¿los datos ya venían anonimizados?)</div>`;
+    $("estadoAnon").textContent = `ok · ${(j.personas_usadas || []).length} persona(s) usadas · ${(j.personas_nuevas || []).length} nueva(s)`;
+  } catch (e) {
+    $("estadoAnon").textContent = "error"; $("errAnon").textContent = String(e.message || e);
+  }
+};
+
+$("btnEjemplo").onclick = () => {
+  $("entrada").value = JSON.stringify({ records: [
+    { id: "demo-2", author: "Pepita Pérez", text: "Soy Pepita Pérez, la diseñadora. Mi correo es pepita punto perez arroba ejemplo punto com y mi cédula 98.765.432." },
+    { source: "tables", record: { id: "clientes:CL-00001", table: "clientes", columns: { nombre_completo: "Pepita Pérez Solano", num_doc: "98765432", correo: "pepita.perez@ejemplo.com", barrio: "Centro" } } },
+    { id: "demo-3", author: "Persona Nunca Vista", text: "Soy nueva en el sistema, no existo en el maestro." }
+  ] }, null, 2);
+  $("comparacion").style.display = "none"; $("tablaCambios").innerHTML = "";
+};
+
+const ORDEN = ["descarga", "extraccion", "preflight", "anonimizacion", "verificacion", "listo"];
+function marcarPaso(nombre, estado) {
+  // Los pasos anteriores quedan como hechos: así la línea de tiempo no muestra varios activos.
+  const hasta = ORDEN.indexOf(nombre);
+  document.querySelectorAll(".paso").forEach((el) => {
+    const i = ORDEN.indexOf(el.dataset.p);
+    el.classList.remove("activo", "hecho");
+    if (i < hasta) el.classList.add("hecho");
+    else if (i === hasta) el.classList.add(estado);
+  });
+}
+
+$("btnCorrer").onclick = async () => {
+  $("btnCorrer").disabled = true; $("errJob").textContent = ""; $("kpis").innerHTML = ""; $("muestras").innerHTML = "";
+  $("estadoJob").textContent = "enviando…";
+  try {
+    const r = await fetch("/run", { method: "POST", headers: conToken({ "content-type": "application/json" }),
+      body: JSON.stringify({ sources_url: "env", token: "env" }) });
+    if (r.status === 401) throw new Error("Falta el token interno: escríbelo arriba a la derecha.");
+    const j = await r.json();
+    if (!j.job_id) throw new Error(JSON.stringify(j));
+    $("estadoJob").textContent = "corriendo…";
+    const t0 = Date.now();
+    for (;;) {
+      await new Promise((res) => setTimeout(res, 2000));
+      const s = await (await fetch(`/run/${j.job_id}`)).json();
+      marcarPaso(s.paso, s.status === "done" ? "hecho" : "activo");
+      $("estadoJob").dataset.paso = s.paso;
+      $("estadoJob").textContent = `${s.status} · ${Math.round((Date.now() - t0) / 1000)}s`;
+      if (s.status === "done" || s.status === "failed") {
+        if (s.status === "failed") { $("errJob").textContent = s.error || "falló"; break; }
+        marcarPaso("listo", "hecho");
+        if (s.preflight) {
+          const v = s.preflight;
+          const color = v.aplicable === "si" ? "var(--ok)" : v.aplicable === "no" ? "var(--bad)" : "var(--warn)";
+          $("preflightBox").innerHTML =
+            `<div class="lbl">compuerta de entrada (Jev sobre la forma de los datos)</div>` +
+            `<div style="border-left:3px solid ${color}; padding:8px 12px; background:#0c0e12; border-radius:6px">` +
+            `<b style="color:${color}">aplicable: ${esc(v.aplicable)}</b>` +
+            ` <span class="pill">p=${v.probabilidad}</span>` +
+            `<div style="font-size:12px;color:var(--dim);margin-top:4px">${(v.motivos || []).map(esc).join(" · ")}</div></div>`;
+        }
+        const c = s.counts || {};
+        $("kpis").innerHTML = [
+          ["chats", c.chats], ["docs", c.docs], ["tablas", c.tablas], ["segundos", s.segundos],
+        ].map(([k, v]) => `<div><b>${v ?? "—"}</b><span>${k}</span></div>`).join("");
+        $("salidas").innerHTML = `<div class="lbl">salidas</div><div class="row">` +
+          ["chats.jsonl", "docs.jsonl", "tables.jsonl", "entities.json"].map((f) =>
+            `<a class="pill" href="/output/${f}" target="_blank">${f}</a>`).join("") +
+          `<a class="pill" href="/entities" target="_blank">entities (API)</a></div>`;
+        await muestras(j.job_id);
+        break;
+      }
+    }
+  } catch (e) {
+    $("errJob").textContent = String(e.message || e);
+  } finally {
+    $("btnCorrer").disabled = false;
+  }
+};
+
+async function muestras(jobId) {
+  const r = await fetch(`/run/${jobId}/muestra?n=6`, { headers: conToken() });
+  if (r.status === 401) {
+    $("muestras").innerHTML = `<div class="lbl">el comparativo con el texto original requiere el token interno</div>`;
+    return;
+  }
+  if (!r.ok) return;
+  const j = await r.json();
+  $("muestras").innerHTML = `<div class="lbl">comparativo (${(j.pares || []).length} registros)</div>` +
+    (j.pares || []).map((p) => `
+      <div style="margin-bottom:12px">
+        <div class="lbl">${esc(p.fuente)} · ${esc(p.id)} · ${esc(p.campo)}</div>
+        <div class="grid2">
+          <div class="box">${esc(p.original)}</div>
+          <div class="box">${esc(p.anonimizado)}</div>
+        </div>
+      </div>`).join("");
+}
+
+salud();
+</script>
+</body>
+</html>
