@@ -97,6 +97,40 @@
     <div id="salidas" style="margin-top:12px"></div>
     <div id="muestras" style="margin-top:14px"></div>
   </section>
+
+  <section>
+    <h2>3 · Consideraciones del proyecto</h2>
+    <details open style="border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; background:#0c0e12">
+      <summary style="cursor:pointer; font-weight:600; color:var(--accent)">Jev: verificación opcional, no obligatoria</summary>
+      <div style="margin-top:10px; font-size:13px; color:var(--txt); line-height:1.6">
+        <p style="margin:0 0 8px">El proceso es determinista: reglas, HMAC y registro persistente. <b>Jev es una opción para verificar el funcionamiento</b>, no una pieza de la que dependa la salida.</p>
+        <p style="margin:0 0 8px">Se usa en la <b>compuerta de entrada</b>: antes de anonimizar se le manda <i>solo la forma</i> del conjunto (tablas, columnas, tipos de dato, conteos y formatos — nunca un valor) y responde si el anonimizador puede aplicarse completo. Las reglas deciden primero lo que pueden decidir; el modelo solo opina en la zona gris y no bloquea salvo evidencia fuerte. Si Jev no está disponible o la clave falta, el servicio corre igual con las reglas.</p>
+        <p style="margin:0">Por qué así: un modelo que decide datos es un riesgo de reproducibilidad. Uno que vigila la forma del conjunto evita gastar una corrida sobre datos que no encajan, sin tocar un solo seudónimo.</p>
+      </div>
+    </details>
+
+    <details style="border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:#0c0e12">
+      <summary style="cursor:pointer; font-weight:600; color:var(--warn)">Edge cases que pueden filtrarse según las condiciones de los datos</summary>
+      <div style="margin-top:10px; font-size:13px; line-height:1.7">
+        <table style="margin-top:4px">
+          <tr><th style="width:42%">Condición del dato</th><th>Qué puede pasar</th></tr>
+          <tr><td>Números o correos deletreados<br><span style="color:var(--dim)">"siete dos dos", "perla siete siete arroba hotmail punto com"</span></td><td>Los dictados con "punto/arroba" se reemplazan cuando la parte local coincide con el nombre o correo de la persona; los dígitos escritos en palabras <b>no se detectan</b>.</td></tr>
+          <tr><td>Nombres de una sola palabra o apodos</td><td>Se sustituyen como nombre suelto; sin apellido no hay forma de ligarlos a una fila del maestro.</td></tr>
+          <tr><td>Tercero mencionado sin contexto de nombre<br><span style="color:var(--dim)">"la cuenta de él", "el señor de la llamada"</span></td><td>Si no hay nombre, correo, documento ni celular, no hay nada que sustituir: no se puede anonimizar lo que no se identifica.</td></tr>
+          <tr><td>Documentos escaneados sin capa de texto</td><td>El PDF se copia tal cual: si el nombre está en la imagen, no se detecta. La compuerta de entrada lo marca como riesgo.</td></tr>
+          <tr><td>Dos humanos con la misma cédula en el maestro</td><td>Se fusionan si además comparten correo o celular. Con cédula igual y contacto distinto se conservan separados, pero el dato es ambiguo por origen.</td></tr>
+          <tr><td>La misma persona en dos cuentas</td><td>Se mantiene una sola identidad solo con evidencia (cédula, correo, número de cliente). Sin evidencia queda como persona distinta: es la decisión conservadora.</td></tr>
+          <tr><td>Datos personales en columnas sin nombre claro<br><span style="color:var(--dim)">"observaciones", "notas", "detalle"</span></td><td>Se sustituyen solo si el valor coincide con una forma conocida. Una PII nueva en texto libre puede pasar si no está en el registro.</td></tr>
+          <tr><td>Formatos de documento nuevos<br><span style="color:var(--dim)">xlsx, docx, imágenes</span></td><td>No hay lector: esos registros no se extraen y el validador lo reporta como faltante.</td></tr>
+          <tr><td>Cuasi-identificadores combinados<br><span style="color:var(--dim)">barrio + ocupación + edad</span></td><td>El pipeline los generaliza ("cliente desde hace unos años"). La vista de `/anonymize` del panel solo sustituye PII directa.</td></tr>
+          <tr><td>Correos de rol u organización<br><span style="color:var(--dim)">soporte@, info@, bancos</span></td><td>Se conservan a propósito: son entidades del dominio, no personas. Confundirlos con PII los volvería ilegibles.</td></tr>
+          <tr><td>Nombres de pila comunes en los seudónimos</td><td>Un seudónimo puede compartir el nombre de pila con alguien real (Sandra, Rosa). Solo se considera fuga un nombre y apellido completos, un documento o un contacto.</td></tr>
+          <tr><td>Textos en idiomas distintos de español e inglés</td><td>Las pistas de contexto (cédula, celular, correo, "soy…") están en esos dos idiomas.</td></tr>
+        </table>
+        <p style="margin:10px 0 0; color:var(--dim)">Cada corrida deja estas comprobaciones en el job: validador oficial, barrido normalizado, verificación literal con severidad y consistencia contra el registro previo.</p>
+      </div>
+    </details>
+  </section>
 </main>
 
 <script>
