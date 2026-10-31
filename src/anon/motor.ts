@@ -91,6 +91,8 @@ export function indexar(personas: Persona[], formasDe: (p: Persona) => Forma[]):
 export interface Marca { persona: Persona; forma: Forma; ini: number; fin: number }
 
 const RX_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+// Correo dictado en palabras: "ana punto perez arroba gmail punto com"
+const RX_EMAIL_DICTADO = /[A-Za-z0-9]+(?:\s+(?:punto|dot)\s+[A-Za-z0-9]+)*\s+(?:arroba|at)\s+[A-Za-z0-9]+(?:\s+(?:punto|dot)\s+[A-Za-z0-9]+)*/gi;
 const SEP = "[.,'`´·/\\-–—_ ]?";
 function patronDigitos(digitos: string, con57 = false): RegExp {
   const cuerpo = digitos.split("").join(SEP);
@@ -129,6 +131,33 @@ export function buscarMarcas(texto: string, idx: Map<string, FormaIndexada[]>, f
         candidatas.push({ persona: c.p, forma: c.f, ini: m.index, fin: m.index + v.length });
     }
   }
+  // 2b. Correos DICTADOS: "pepita punto perez arroba ejemplo punto com".
+  // Si la parte local corresponde al nombre o al correo de alguien, se reemplaza la frase completa:
+  // dejar el apellido suelto sería dejar la mitad del dato.
+  for (const m of texto.matchAll(RX_EMAIL_DICTADO)) {
+    const palabras = norm(m[0]).split(/\s+/).filter(Boolean);
+    const posArroba = palabras.indexOf("arroba");
+    if (posArroba < 1) continue;
+    const local = palabras.slice(0, posArroba).filter((w) => w !== "punto");
+    const dominio = palabras.slice(posArroba + 1).filter((w) => w !== "punto");
+    if (!local.length || !dominio.length) continue;
+    const clave = local.join(" ");
+    const claveCorreo = local.join(".");
+    let elegido: { persona: Persona; f: Forma } | undefined;
+    for (const cands of idx.values()) {
+      for (const c of cands) {
+        const nombreClave = c.palabras.join(" ");
+        const correoClave = c.f.tipo === "correo" ? norm(c.f.valor.split("@")[0]) : "";
+        if (nombreClave === clave || (correoClave && (correoClave === claveCorreo || correoClave === clave))) {
+          elegido = { persona: c.p, f: c.f };
+          break;
+        }
+      }
+      if (elegido) break;
+    }
+    if (elegido) candidatas.push({ persona: elegido.persona, forma: { valor: m[0], tipo: "correo" }, ini: m.index, fin: m.index + m[0].length });
+  }
+
   // 3. Dígitos (cédula, celular, placa numérica)
   const compacto = digitosCompactos(texto);
   if (/\d{6}/.test(compacto)) {

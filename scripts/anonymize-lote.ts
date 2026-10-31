@@ -31,13 +31,14 @@ const prohibidas = personas.flatMap((p) => formasDe(p).map((f) => f.valor)).filt
 const usados = new Set<string>();
 for (const i of idents.values()) for (const v of [i.nombre_completo, i.correo, i.cedula, i.celular]) usados.add(v.toLowerCase());
 
-const nuevo = (nombre: string, correo?: string): Persona => {
+const nuevo = (nombre: string, correo?: string, extra: { cedula?: string; celular?: string; direccion?: string } = {}): Persona => {
   const id = `P${String(personas.length + 1).padStart(4, "0")}`;
   const partes = nombre.trim().split(/\s+/).filter(Boolean);
   const nombres = partes.length > 2 ? partes.slice(0, 2) : partes.slice(0, 1);
   const p: Persona = {
     id, tipo: "tercero", ancla: `lote:${norm(nombre)}`, nombre: nombre.trim(),
     nombres, apellidos: partes.slice(nombres.length), genero: generoDe(nombres), correo,
+    cedula: extra.cedula, celular: extra.celular, direccion: extra.direccion,
     liga: "lote",
   };
   personas.push(p);
@@ -126,6 +127,12 @@ for (const c of chats) {
     autor = dibujarTexto(`⟦${p.id}·${tipo}⟧`, porId());
   } else if (autor.trim()) {
     const nuevoP = nuevo(autor);
+    // Si en el mismo mensaje la persona nueva dicta su documento, ese documento es suyo: se le
+    // asigna para que su identidad lo cubra desde el primer momento (y no quede como huérfano).
+    const docPropio = /(?:\bcc\b|\bc\.c\.|c[eé]dula|documento|identificaci[oó]n)\D{0,14}(\d[\d.\s]{5,14}\d)/i.exec(String(c.text ?? ""));
+    if (docPropio && !personas.some((q) => q !== nuevoP && (q.cedula ?? "").replace(/\D/g, "") === docPropio[1].replace(/\D/g, ""))) {
+      nuevoP.cedula = docPropio[1].trim();
+    }
     idx = indexar(personas, formasDe);
     fd = formasDigitos();
     registrarUso(nuevoP.id);
@@ -141,6 +148,35 @@ for (const d of docs) {
   });
 }
 for (const t of tablas) {
+  // Antes de dibujar, la fila enseña quién es: si trae nombre y documento/correo/celular, esa
+  // persona se registra (o se completa) para que TODOS sus datos se sustituyan, no solo el nombre.
+  const c: Record<string, any> = t.columns ?? {};
+  const nombreFila = String(c.nombre_completo ?? c.nombre ?? "").trim();
+  const cedulaFila = String(c.num_doc ?? c.documento ?? c.cedula ?? "").trim();
+  const correoFila = String(c.correo ?? "").trim();
+  const celularFila = String(c.celular ?? "").trim();
+  if (nombreFila) {
+    const ya = buscarMarcas(nombreFila, idx, fd).find((m) => m.persona)?.persona;
+    const palabrasFila = norm(nombreFila).split(/\s+/).filter(Boolean);
+    const palabrasYa = ya ? norm(ya.nombre).split(/\s+/).filter(Boolean) : [];
+    const esExtension = !!ya && palabrasFila.length > palabrasYa.length &&
+      palabrasFila.slice(0, palabrasYa.length).join(" ") === palabrasYa.join(" ");
+    if (ya && (esExtension || palabrasFila.join(" ") === palabrasYa.join(" "))) {
+      // Misma persona con más datos: se completa sin cambiarle la identidad.
+      if (esExtension) { ya.nombre = nombreFila; ya.apellidos = nombreFila.split(/\s+/).slice((ya.nombres ?? []).length); }
+      if (!ya.cedula && cedulaFila) ya.cedula = cedulaFila;
+      if (!ya.correo && correoFila) ya.correo = correoFila;
+      if (!ya.celular && celularFila) ya.celular = celularFila;
+      idx = indexar(personas, formasDe);
+      fd = formasDigitos();
+    } else if (!ya) {
+      const p = nuevo(nombreFila, correoFila || undefined, { cedula: cedulaFila || undefined, celular: celularFila || undefined });
+      registrarUso(p.id);
+      salida.nuevas.push(p.id);
+      idx = indexar(personas, formasDe);
+      fd = formasDigitos();
+    }
+  }
   const columns = Object.fromEntries(Object.entries(t.columns ?? {}).map(([k, v]) => [k, procesar(String(v))]));
   salida.tables.push({ ...t, columns });
 }

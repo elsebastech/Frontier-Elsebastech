@@ -43,6 +43,22 @@ const PATRONES: { tipo: TipoHuerfano; rx: RegExp; contexto?: RegExp }[] = [
 ];
 
 /** Genera el reemplazo determinista de un identificador huérfano, conservando el formato. */
+/** Devuelve los dígitos con los mismos separadores y bloques que el original (1.022.649.507). */
+export function conFormatoOriginal(original: string, digitos: string): string {
+  if (!/[^\d]/.test(original)) return digitos;
+  const sep = (original.match(/[^\d]/) ?? [""])[0];
+  const bloques = original.split(/[^\d]+/).filter(Boolean).map((g) => g.length);
+  let salida = "";
+  let i = 0;
+  bloques.forEach((tam, k) => {
+    if (i >= digitos.length) return;
+    salida += (k ? sep : "") + digitos.slice(i, i + tam);
+    i += tam;
+  });
+  if (i < digitos.length) salida += sep + digitos.slice(i);
+  return salida;
+}
+
 export function reemplazoDe(tipo: TipoHuerfano, original: string, sal: string): string {
   const b = hmac(sal, `${tipo}|${norm(original)}`);
   switch (tipo) {
@@ -62,8 +78,8 @@ export function reemplazoDe(tipo: TipoHuerfano, original: string, sal: string): 
       const base = `${via} ${1 + (b[0] % 180)}${b[1] % 2 ? " Bis" : ""} # ${10 + (b[2] % 90)}-${1 + (b[3] % 98)}`;
       return sufijo ? `${base} ${sufijo.toLowerCase()} ${101 + (b[4] * 7) % 899}` : base;
     }
-    case "celular": return `3${digitosDe(b, 9, 1)}`;
-    case "cedula": return digitosDe(b, soloDigitos(original).length, 3);
+    case "celular": return conFormatoOriginal(original, `3${digitosDe(b, 9, 1)}`);
+    case "cedula": return conFormatoOriginal(original, digitosDe(b, soloDigitos(original).length, 3));
     case "correo": return `x${digitosDe(b, 6, 2)}@ejemplo.com`;
   }
 }
