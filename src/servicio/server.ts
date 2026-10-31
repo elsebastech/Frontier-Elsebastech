@@ -224,6 +224,16 @@ const servidor = createServer(async (req, res) => {
       return res.end(buf);
     }
 
+    // Ejemplos con datos reales del corpus. Viven en pruebas/ (fuera del repo) y no se sirven si
+    // no existen: el panel simplemente no muestra el selector.
+    if (req.method === "GET" && ruta === "/ejemplos") {
+      const p = "pruebas/ejemplos-panel.json";
+      if (!existsSync(p)) return json(res, 404, { error: "sin ejemplos: corre node scripts/ejemplos.ts" });
+      const buf = readFileSync(p);
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "content-length": buf.length });
+      return res.end(buf);
+    }
+
     if (req.method === "GET" && ruta === "/entities") {
       const p = join(carpetaSalida(), "output/entities.json");
       if (!existsSync(p)) return json(res, 404, { error: "todavía no hay diccionario" });
@@ -247,7 +257,7 @@ const servidor = createServer(async (req, res) => {
       return res.end(r.out);
     }
 
-    return json(res, 404, { error: "ruta no encontrada", rutas: ["/health", "/run", "/run/{id}", "/run/{id}/muestra", "/output/{archivo}", "/anonymize", "/entities", "/panel"] });
+    return json(res, 404, { error: "ruta no encontrada", rutas: ["/health", "/run", "/run/{id}", "/run/{id}/muestra", "/output/{archivo}", "/anonymize", "/entities", "/ejemplos", "/panel"] });
   } catch (e: any) {
     return json(res, 500, { error: String(e.message ?? e).slice(0, 500) });
   }

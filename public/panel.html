@@ -53,6 +53,13 @@
 <main>
   <section>
     <h2>1 · Probar un registro suelto (no gasta corrida)</h2>
+    <div class="row" style="margin-bottom:10px">
+      <span class="lbl" style="margin:0">Ejemplos con datos reales</span>
+      <select id="selEjemplo" style="background:#0c0e12;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;max-width:520px">
+        <option value="">— elige un caso —</option>
+      </select>
+      <span class="pill" id="notaEjemplo"></span>
+    </div>
     <div class="lbl">Registros en JSON — un objeto <code>{"records":[…]}</code>, un array, o <code>{"chats":[…]}</code></div>
     <textarea id="entrada">{"records":[
   {"id":"demo-1","author":"Fulano De Tal","text":"Hola, soy Fulano De Tal. Mi cédula es 12.345.678 y mi celular 3001234567. Escríbanme a fulano.detal@ejemplo.com. Mi pasaporte es AB123456.","attachments":[{"filename":"SOAT_ABC123_2026.pdf"}]}
@@ -141,6 +148,9 @@ function pintar(original, anonimizado) {
   ).join("");
 }
 
+/** Los registros pueden venir envueltos como {source, record}: se comparan ya desemvueltos. */
+const desenvolver = (x) => (x && typeof x === "object" && x.record ? x.record : x);
+
 function registrosDe(texto) {
   const j = JSON.parse(texto);
   if (Array.isArray(j)) return j;
@@ -159,8 +169,8 @@ $("btnAnonimizar").onclick = async () => {
     const r = await fetch("/anonymize", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
     if (!r.ok) throw new Error(await r.text());
     const j = await r.json();
-    const antes = registrosDe($("entrada").value);
-    const despues = j.records || j.registros || j.chats || j.docs || j.tables || [];
+    const antes = registrosDe($("entrada").value).map(desenvolver);
+    const despues = (j.records || j.registros || j.chats || j.docs || j.tables || []).map(desenvolver);
     const comparacion = $("comparacion");
     comparacion.style.display = "block";
 
@@ -289,6 +299,34 @@ async function muestras(jobId) {
       </div>`).join("");
 }
 
+// Ejemplos reales servidos por /ejemplos (viven en pruebas/, fuera del repo).
+let EJEMPLOS = [];
+async function cargarEjemplos() {
+  try {
+    const r = await fetch("/ejemplos");
+    if (!r.ok) return;                       // sin archivo: el selector queda vacío
+    const j = await r.json();
+    EJEMPLOS = j.ejemplos || [];
+    const sel = $("selEjemplo");
+    for (const e of EJEMPLOS) {
+      const o = document.createElement("option");
+      o.value = e.id; o.textContent = e.titulo;
+      sel.appendChild(o);
+    }
+  } catch { /* el panel funciona igual sin ejemplos */ }
+}
+$("selEjemplo").onchange = () => {
+  const e = EJEMPLOS.find((x) => x.id === $("selEjemplo").value);
+  $("notaEjemplo").textContent = e ? e.nota : "";
+  if (!e) return;
+  $("entrada").value = JSON.stringify(e.payload, null, 1);
+  $("comparacion").style.display = "none";
+  $("tablaCambios").innerHTML = "";
+  $("estadoAnon").textContent = "";
+  $("errAnon").textContent = "";
+};
+
+cargarEjemplos();
 salud();
 </script>
 </body>

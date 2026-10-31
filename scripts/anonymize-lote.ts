@@ -47,6 +47,34 @@ const nuevo = (nombre: string, correo?: string, extra: { cedula?: string; celula
   return p;
 };
 
+/**
+ * Aprende de un mensaje los datos que esa persona deja de sí misma (documento, correo, celular),
+ * siempre que no pertenezcan a otra. Sirve para personas nuevas y para conocidas que traen un dato
+ * que aún no teníamos: en los dos casos su identidad debe cubrirlo.
+ */
+const aprenderDeMensaje = (p: Persona, texto: string): boolean => {
+  const t = String(texto ?? "");
+  let tocado = false;
+  const doc = /(?:\bcc\b|\bc\.c\.|c[eé]dula|documento|identificaci[oó]n)\D{0,14}(\d[\d.\s]{5,14}\d)/i.exec(t);
+  const dg = (doc?.[1] ?? "").replace(/\D/g, "");
+  if (dg && !p.cedula && !personas.some((q) => q !== p && (q.cedula ?? "").replace(/\D/g, "") === dg)) {
+    p.cedula = doc![1].trim();
+    tocado = true;
+  }
+  const co = /[\w.+-]+@[\w-]+\.[a-z]{2,}/i.exec(t);
+  if (co && !p.correo && !personas.some((q) => q !== p && (q.correo ?? "").toLowerCase() === co[0].toLowerCase())) {
+    p.correo = co[0];
+    tocado = true;
+  }
+  const ce = /(?<!\d)(3\d{2}[ .-]?\d{3}[ .-]?\d{4})(?!\d)/.exec(t);
+  const cg = (ce?.[1] ?? "").replace(/\D/g, "");
+  if (cg && !p.celular && !personas.some((q) => q !== p && (q.celular ?? "").replace(/\D/g, "") === cg)) {
+    p.celular = ce![1].trim();
+    tocado = true;
+  }
+  return tocado;
+};
+
 let idx = indexar(personas, formasDe);
 const formasDigitos = () =>
   personas.flatMap((p) => formasDe(p).map((f) => ({ p, f, digitos: f.valor.replace(/\D/g, "") }))
@@ -121,6 +149,7 @@ for (const c of chats) {
   const marcasAutor = porUid ? [] : buscarMarcas(autor, idx, fd);
   const p = porUid ?? (marcasAutor.length ? marcasAutor[0].persona : undefined);
   if (p) {
+    if (aprenderDeMensaje(p, c.text ?? "")) { idx = indexar(personas, formasDe); fd = formasDigitos(); }
     registrarUso(p.id);
     const n = (autor.match(/[a-z0-9]+/gi) ?? []).length;
     const tipo: TipoForma = n >= 3 ? "nombre_completo" : n === 2 ? "nombre_apellido" : "nombre";
@@ -129,10 +158,7 @@ for (const c of chats) {
     const nuevoP = nuevo(autor);
     // Si en el mismo mensaje la persona nueva dicta su documento, ese documento es suyo: se le
     // asigna para que su identidad lo cubra desde el primer momento (y no quede como huérfano).
-    const docPropio = /(?:\bcc\b|\bc\.c\.|c[eé]dula|documento|identificaci[oó]n)\D{0,14}(\d[\d.\s]{5,14}\d)/i.exec(String(c.text ?? ""));
-    if (docPropio && !personas.some((q) => q !== nuevoP && (q.cedula ?? "").replace(/\D/g, "") === docPropio[1].replace(/\D/g, ""))) {
-      nuevoP.cedula = docPropio[1].trim();
-    }
+    aprenderDeMensaje(nuevoP, c.text ?? "");
     idx = indexar(personas, formasDe);
     fd = formasDigitos();
     registrarUso(nuevoP.id);
