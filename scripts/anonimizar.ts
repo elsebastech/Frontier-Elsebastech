@@ -469,18 +469,18 @@ for (const p of personas) {
     correo: i.correo, celular: i.celular, cedula: i.cedula, direccion: i.direccion,
     nacimiento: i.nacimiento, uid: i.uid, handle: i.handle, filename_token: i.filename_token, cedula_dots: i.cedula,
   };
+  // El validador exige que cada seudónimo emitido aparezca en algún registro de su persona.
+  const textos = [...(registrosPorPersona.get(p.id) ?? [])].map((rid) => {
+    const r = registroPorId.get(rid);
+    return r ? JSON.stringify(r) : "";
+  });
+  const aparece = (v: string | undefined) => !!v && textos.some((t) => t.includes(v));
   for (const tipo of a.tipos) {
     const esNombre = tipo === "nombre_completo" || tipo === "nombre_apellido" || tipo === "nombre";
     if (esNombre) {
       // Por defecto se conserva la forma más larga dibujada (así el diccionario es estable entre
-      // corridas). Solo si esa forma no aparece en ningún registro se baja a una que sí aparezca,
-      // porque el validador exige que cada seudónimo esté en alguno de sus records.
+      // corridas). Solo si esa forma no aparece en ningún registro se baja a una que sí aparezca.
       const preferida = a.nombreDibujado ?? i.nombre_completo;
-      const textos = [...(registrosPorPersona.get(p.id) ?? [])].map((rid) => {
-        const r = registroPorId.get(rid);
-        return r ? JSON.stringify(r) : "";
-      });
-      const aparece = (v: string | undefined) => !!v && textos.some((t) => t.includes(v));
       pseud.name = aparece(preferida)
         ? preferida
         : [i.nombre_apellido, i.nombre_completo, i.nombre].find((v) => aparece(v)) ?? preferida;
@@ -488,6 +488,9 @@ for (const p of personas) {
     }
     const v = valorPorTipo[tipo];
     if (!v) continue;
+    // Si la forma no se dibujó en ningún registro (el uid que solo venía como metadato _uid, por
+    // ejemplo), no se emite: un seudónimo sin presencia en la salida no protege nada.
+    if (!aparece(v)) continue;
     pseud[tipo] = v;
   }
   entities.push({

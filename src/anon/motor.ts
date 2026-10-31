@@ -182,7 +182,8 @@ export function dibujarTexto(
     const valor = valorMarcador(i, tipo);
     // Contexto: un seudónimo con espacios rompe un correo o una URL. Ahí se dibuja en formato slug.
     const token = tokenAlrededor(texto, offset, _m.length);
-    if (token.includes("@")) return i.handle;
+    // Solo un correo de verdad (algo@dominio.tld) fuerza formato slug. Una mención "@U0…" no.
+    if (/[^\s@]@[^\s@]+\.[a-z]{2,}/i.test(token)) return i.handle;
     if (/^https?:\/\//i.test(token)) return i.filename_token.replace(/_/g, "-");
     return valor;
   });
