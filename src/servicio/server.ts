@@ -227,6 +227,8 @@ const servidor = createServer(async (req, res) => {
     // Ejemplos con datos reales del corpus. Viven en pruebas/ (fuera del repo) y no se sirven si
     // no existen: el panel simplemente no muestra el selector.
     if (req.method === "GET" && ruta === "/ejemplos") {
+      // Son datos reales del corpus: solo con el token interno, nunca abiertos en internet.
+      if (!tokenValido(req)) return json(res, 401, { error: "los ejemplos contienen datos del corpus: requieren token" });
       const p = "pruebas/ejemplos-panel.json";
       if (!existsSync(p)) return json(res, 404, { error: "sin ejemplos: corre node scripts/ejemplos.ts" });
       const buf = readFileSync(p);

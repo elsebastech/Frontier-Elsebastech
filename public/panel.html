@@ -337,7 +337,8 @@ async function muestras(jobId) {
 let EJEMPLOS = [];
 async function cargarEjemplos() {
   try {
-    const r = await fetch("/ejemplos");
+    const r = await fetch("/ejemplos", { headers: conToken() });
+    if (r.status === 401) { $("notaEjemplo").textContent = "escribe el token para ver los ejemplos"; return; }
     if (!r.ok) return;                       // sin archivo: el selector queda vacío
     const j = await r.json();
     EJEMPLOS = j.ejemplos || [];
