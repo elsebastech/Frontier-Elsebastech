@@ -4,21 +4,21 @@
 !.env.example
 
 # datos del reto (contienen PII real: nunca al repo público)
-fuentes/
-sample/
+/fuentes/
+/sample/
 sample-*/
-output/
+/output/
 output-*/
-data/
+/data/
 *.zip
 
 # estado persistente con originales
-registro/
+/registro/
 
 # artefactos de prueba y de ejecución (derivados de datos reales)
-pruebas/
+/pruebas/
 pruebas-*.log
-trabajos/
+/trabajos/
 trabajos.log
 *.log
 
@@ -34,3 +34,4 @@ docs/guion-video.md
 docs/presentacion.md
 CONTEXTO.md
 PLAN-TAREAS.md
+docs/interno/
