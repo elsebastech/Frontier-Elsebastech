@@ -28,3 +28,9 @@ node_modules/
 # vigilancia (artefactos de ejecución)
 vigilante.jsonl
 vigilante-CAMBIO.json
+
+# documentos internos de trabajo (no van al repo público)
+docs/guion-video.md
+docs/presentacion.md
+CONTEXTO.md
+PLAN-TAREAS.md
