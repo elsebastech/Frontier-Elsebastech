@@ -13,10 +13,20 @@ de un modelo para decidir un dato.
 # Node 22.18 o superior
 cp .env.example .env        # pega FUENTES_URL y FUENTES_TOKEN (nunca al repo)
 
-./panel.sh                  # panel de verificación en http://localhost:8080/panel
-./run.sh                    # pipeline completo sobre fuentes/ ya descargadas
-./run.sh --bajar            # descarga las fuentes de la API y después procesa
-./panel.sh 9000             # otro puerto
+./run.sh --bajar            # 1) descarga las fuentes y construye registro/ y output/
+./panel.sh                  # 2) panel de verificación en http://localhost:8080/panel
+./run.sh                    #    pipeline otra vez sobre fuentes/ ya descargadas
+./panel.sh 9000             #    otro puerto
+```
+
+El registro (`registro/`) se crea en la primera corrida y es lo que permite que cada persona conserve
+su seudónimo: no se versiona porque es el mapa real→falsa. Sin él, `/anonymize` no tiene identidades
+que reutilizar.
+
+Los ejemplos con datos reales del desplegable se generan después de tener `data/extraccion`:
+
+```bash
+node scripts/ejemplos.ts    # escribe pruebas/ejemplos-panel.json (fuera del repo, tiene PII)
 ```
 
 `panel.sh` genera un token interno si no hay `ANON_TOKEN` en `.env` y lo imprime dentro de la URL,
